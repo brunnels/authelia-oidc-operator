@@ -107,15 +107,14 @@ jobs:
             yq e -i ".version = \\"$FULL_VERSION\\"" "${CHART_PATH}/Chart.yaml"
             echo "version=$FULL_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Copy CRDs into chart
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v3
+
+      - name: Generate CRDs into chart
         run: |
           # Ensure the chart CRDs directory exists and copy repository CRDs there. This makes them part of the packaged chart.
           mkdir -p charts/${{ github.repository }}/crds
-          if compgen -G "crds/*.yaml" > /dev/null; then
-            cp crds/*.yaml charts/${{ github.repository }}/crds/
-          else
-            echo "No CRDs found in repository crds/ - continuing"
-          fi
+          kustomize build config/crd | tee charts/${{ github.repository }}/crds/crds.yaml
 
       - name: Download image digest artifact (operator)
         uses: actions/download-artifact@v4
