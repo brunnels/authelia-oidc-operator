@@ -1,0 +1,202 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/common-5.0.1/charts/library/common/values.schema.json
+
+global:
+  fullnameOverride: authelia-oidc-operator
+  namespace: authelia-oidc-operator-system
+
+defaultPodOptions:
+  securityContext:
+    runAsNonRoot: true
+
+serviceAccount:
+  controller_manager:
+    forceRename: &controllerManager authelia-oidc-operator-controller-manager
+
+controllers:
+  controller_manager:
+    forceRename: *controllerManager
+    type: deployment
+    replicas: 1
+    strategy: RollingUpdate
+    serviceAccount:
+      identifier: controller_manager
+
+    pod:
+      labels:
+        control-plane: controller-manager
+      securityContext:
+        runAsNonRoot: true
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+                      - ppc64le
+                      - s390x
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+
+    containers:
+      kube-rbac-proxy:
+        image:
+          repository: gcr.io/kubebuilder/kube-rbac-proxy
+          tag: v0.13.1
+          pullPolicy: IfNotPresent
+        args:
+          - --secure-listen-address=0.0.0.0:8443
+          - --upstream=http://127.0.0.1:8080/
+          - --logtostderr=true
+          - --v=0
+        ports:
+          - name: https
+            containerPort: 8443
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 5m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+      manager:
+        image:
+          repository: ghcr.io/milas/authelia-oidc-operator
+          tag: latest
+          pullPolicy: IfNotPresent
+        args:
+          - --health-probe-bind-address=:8081
+          - --metrics-bind-address=127.0.0.1:8080
+          - --leader-elect
+        command:
+          - /manager
+        ports:
+          - name: health
+            containerPort: 8081
+            protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  metrics:
+    controller: controller_manager
+    type: ClusterIP
+    ports:
+      https:
+        port: 8443
+        targetPort: 8443
+        protocol: TCP
+    labels:
+      control-plane: controller-manager
+
+rbac:
+  roles:
+    leader_election_role:
+      forceRename: authelia-oidc-operator-leader-election-role
+      type: Role
+      rules:
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+        - apiGroups: ["coordination.k8s.io"]
+          resources: ["leases"]
+          verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+        - apiGroups: [""]
+          resources: ["events"]
+          verbs: ["create", "patch"]
+    manager_role:
+      forceRename: authelia-oidc-operator-manager-role
+      type: ClusterRole
+      rules:
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+        - apiGroups: ["authelia.milas.dev"]
+          resources: ["oidcclients", "oidcproviders"]
+          verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+        - apiGroups: ["authelia.milas.dev"]
+          resources: ["oidcclients/finalizers", "oidcproviders/finalizers"]
+          verbs: ["update"]
+        - apiGroups: ["authelia.milas.dev"]
+          resources: ["oidcclients/status", "oidcproviders/status"]
+          verbs: ["get", "patch", "update"]
+    metrics_reader:
+      forceRename: authelia-oidc-operator-metrics-reader
+      type: ClusterRole
+      rules:
+        - nonResourceURLs: ["/metrics"]
+          verbs: ["get"]
+    proxy_role:
+      forceRename: authelia-oidc-operator-proxy-role
+      type: ClusterRole
+      rules:
+        - apiGroups: ["authentication.k8s.io"]
+          resources: ["tokenreviews"]
+          verbs: ["create"]
+        - apiGroups: ["authorization.k8s.io"]
+          resources: ["subjectaccessreviews"]
+          verbs: ["create"]
+  bindings:
+    leader_election_rolebinding:
+      forceRename: authelia-oidc-operator-leader-election-rolebinding
+      type: RoleBinding
+      roleRef:
+        kind: Role
+        identifier: leader_election_role
+      subjects:
+        - kind: ServiceAccount
+          identifier: controller_manager
+    manager_rolebinding:
+      forceRename: authelia-oidc-operator-manager-rolebinding
+      type: ClusterRoleBinding
+      roleRef:
+        kind: ClusterRole
+        identifier: manager_role
+      subjects:
+        - kind: ServiceAccount
+          identifier: controller_manager
+    proxy_rolebinding:
+      forceRename: authelia-oidc-operator-proxy-rolebinding
+      type: ClusterRoleBinding
+      roleRef:
+        kind: ClusterRole
+        identifier: proxy_role
+      subjects:
+        - kind: ServiceAccount
+          identifier: controller_manager
