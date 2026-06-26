@@ -114,7 +114,7 @@ jobs:
         run: |
           # Ensure the chart CRDs directory exists and copy repository CRDs there. This makes them part of the packaged chart.
           mkdir -p charts/${{ github.event.repository.name }}/crds
-          kustomize build config/crd | tee charts/${{ github.event.repository.name }}/crds/crds.yaml
+          kustomize build config/crd -o charts/${{ github.event.repository.name }}/crds/crds.yaml
 
       - name: Download image digest artifact (operator)
         uses: actions/download-artifact@v4
@@ -151,6 +151,7 @@ jobs:
       - name: Push packaged chart with Helm (OCI)
         env:
           CHART_VERSION: ${{ steps.get_version.outputs.version }}
+          HELM_REGISTRY_CONFIG: ~/.config/helm/registries.yaml
         run: |
           set -euo pipefail
           chart_file=$(ls packaged/*.tgz | head -n1)
