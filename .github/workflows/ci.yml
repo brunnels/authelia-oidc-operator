@@ -147,6 +147,8 @@ jobs:
           set -euo pipefail
           echo "Logging in to ghcr.io with helm registry login"
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+        env:
+          HELM_REGISTRY_CONFIG: ~/.config/helm/registries.yaml
 
       - name: Push packaged chart with Helm (OCI)
         env:
