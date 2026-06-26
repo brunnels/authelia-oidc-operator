@@ -83,7 +83,7 @@ jobs:
             set -euo pipefail
             
             REF="${{ github.ref }}"
-            CHART_PATH="charts/${{ github.repository }}"
+            CHART_PATH="charts/${{ github.event.repository.name }}"
 
             if [[ "$REF" == refs/tags/* ]]; then
               FULL_VERSION="${{ github.ref_name }}"
@@ -113,8 +113,8 @@ jobs:
       - name: Generate CRDs into chart
         run: |
           # Ensure the chart CRDs directory exists and copy repository CRDs there. This makes them part of the packaged chart.
-          mkdir -p charts/${{ github.repository }}/crds
-          kustomize build config/crd | tee charts/${{ github.repository }}/crds/crds.yaml
+          mkdir -p charts/${{ github.event.repository.name }}/crds
+          kustomize build config/crd | tee charts/${{ github.event.repository.name }}/crds/crds.yaml
 
       - name: Download image digest artifact (operator)
         uses: actions/download-artifact@v4
@@ -126,10 +126,10 @@ jobs:
         uses: mikefarah/yq@master
         with:
           cmd: |
-            VALUES_FILE=charts/${{ github.repository }}/values.yaml
+            VALUES_FILE=charts/${{ github.event.repository.name }}/values.yaml
             
             OP_DIGEST="$(cat operator-artifact/image-digest-operator.txt)"
-            yq e -i ".controllers.controller_manager.containers.manager.image.repository = \\"ghcr.io/${{ github.repository_owner }}/${{ github.repository }}\\"" "$VALUES_FILE"
+            yq e -i ".controllers.controller_manager.containers.manager.image.repository = \\"ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}\\"" "$VALUES_FILE"
             yq e -i ".controllers.controller_manager.containers.manager.image.tag = \\"${{ github.ref_name }}@${OP_DIGEST}\\"" "$VALUES_FILE"
             
             echo "Updated $VALUES_FILE"
@@ -137,8 +137,8 @@ jobs:
       - name: Package Helm chart
         run: |
           mkdir -p packaged
-          helm dependency update charts/${{ github.repository }}
-          helm package charts/${{ github.repository }} -d packaged
+          helm dependency update charts/${{ github.event.repository.name }}
+          helm package charts/${{ github.event.repository.name }} -d packaged
           ls -lah packaged
 
       - name: Login to GHCR for Helm OCI
