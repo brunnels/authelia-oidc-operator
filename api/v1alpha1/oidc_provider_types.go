@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/milas/authelia-oidc-operator/pkg/duration"
 )
 
 // OIDCProviderSpec defines the desired state of OIDCProvider
@@ -28,13 +30,13 @@ type OIDCProviderSpec struct {
 	// +optional
 	IssuerPrivateKeyRef SecretReference `json:"issuer_private_key_ref"`
 
-	AccessTokenLifespan metav1.Duration `json:"access_token_lifespan,omitempty"`
+	AccessTokenLifespan duration.Duration `json:"access_token_lifespan,omitempty"`
 
-	AuthorizeCodeLifespan metav1.Duration `json:"authorize_code_lifespan,omitempty"`
+	AuthorizeCodeLifespan duration.Duration `json:"authorize_code_lifespan,omitempty"`
 
-	IDTokenLifespan metav1.Duration `json:"id_token_lifespan,omitempty"`
+	IDTokenLifespan duration.Duration `json:"id_token_lifespan,omitempty"`
 
-	RefreshTokenLifespan metav1.Duration `json:"refresh_token_lifespan,omitempty"`
+	RefreshTokenLifespan duration.Duration `json:"refresh_token_lifespan,omitempty"`
 
 	EnableClientDebugMessages bool `json:"enable_client_debug_messages,omitempty"`
 
