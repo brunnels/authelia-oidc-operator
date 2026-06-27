@@ -56,13 +56,16 @@ controllers:
           - --upstream=http://127.0.0.1:8080/
           - --logtostderr=true
           - --v=0
+        pod:
+          # app-template v5 defaults this to false
+          automountServiceAccountToken: true
         ports:
           - name: https
             containerPort: 8443
             protocol: TCP
         resources:
           requests:
-            cpu: 5m
+            cpu: 10m
             memory: 64Mi
           limits:
             cpu: 500m
