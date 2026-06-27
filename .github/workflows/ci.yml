@@ -49,7 +49,7 @@ jobs:
           cache-to: type=gha,mode=max
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/arm64,linux/amd64
-          push: ${{ !github.event.pull_request.head.repo.fork }}
+          push: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork) }}
           tags: ${{ steps.meta.outputs.tags }}
 
       - name: Write container image digest file
