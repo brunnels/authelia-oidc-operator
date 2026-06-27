@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/go-crypt/crypt/algorithm"
-	autheliav1alpha1 "github.com/milas/authelia-oidc-operator/api/v1alpha1"
-	autheliav1alpha2 "github.com/milas/authelia-oidc-operator/api/v1alpha2"
+	autheliav1alpha1 "github.com/brunnels/authelia-oidc-operator/api/v1alpha1"
+	autheliav1alpha2 "github.com/brunnels/authelia-oidc-operator/api/v1alpha2"
+	durationpkg "github.com/brunnels/authelia-oidc-operator/pkg/duration"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,10 +23,10 @@ func TestMarshalConfig(t *testing.T) {
 			Name:      "my-provider",
 		},
 		Spec: autheliav1alpha1.OIDCProviderSpec{
-			AccessTokenLifespan:       metav1.Duration{Duration: 1 * time.Hour},
-			AuthorizeCodeLifespan:     metav1.Duration{Duration: 1 * time.Minute},
-			IDTokenLifespan:           metav1.Duration{Duration: 1 * time.Hour},
-			RefreshTokenLifespan:      metav1.Duration{Duration: 90 * time.Minute},
+			AccessTokenLifespan:       durationpkg.Duration(1 * time.Hour),
+			AuthorizeCodeLifespan:     durationpkg.Duration(1 * time.Minute),
+			IDTokenLifespan:           durationpkg.Duration(1 * time.Hour),
+			RefreshTokenLifespan:      durationpkg.Duration(90 * time.Minute),
 			EnableClientDebugMessages: false,
 			EnforcePKCE:               "public_clients_only",
 			CORS: autheliav1alpha1.CORS{
@@ -62,7 +63,7 @@ func TestMarshalConfig(t *testing.T) {
 			Public:                       false,
 			AuthorizationPolicy:          autheliav1alpha2.AuthorizationPolicyTwoFactor,
 			ConsentMode:                  autheliav1alpha2.ConsentModeAuto,
-			PreconfiguredConsentDuration: metav1.Duration{Duration: 1 * time.Hour},
+			PreconfiguredConsentDuration: durationpkg.Duration(1 * time.Hour),
 			Audience:                     nil,
 			Scopes: []autheliav1alpha2.Scope{
 				"openid",

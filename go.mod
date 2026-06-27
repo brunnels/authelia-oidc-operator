@@ -1,4 +1,4 @@
-module github.com/milas/authelia-oidc-operator
+module github.com/brunnels/authelia-oidc-operator
 
 go 1.24.6
 

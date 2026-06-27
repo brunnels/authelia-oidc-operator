@@ -24,12 +24,12 @@ import (
 	"io"
 	"strings"
 
+	"github.com/brunnels/authelia-oidc-operator/api/v1alpha1"
+	"github.com/brunnels/authelia-oidc-operator/api/v1alpha2"
+	"github.com/brunnels/authelia-oidc-operator/internal/autheliacfg"
 	"github.com/go-crypt/crypt/algorithm"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/milas/authelia-oidc-operator/api/v1alpha1"
-	"github.com/milas/authelia-oidc-operator/api/v1alpha2"
-	"github.com/milas/authelia-oidc-operator/internal/autheliacfg"
 	"golang.org/x/sync/errgroup"
 	k8score "k8s.io/api/core/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
@@ -151,7 +151,7 @@ func (r *OIDCProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	var existingCfg autheliacfg.Config
 	if err := yaml.Unmarshal(retSecret.Data[OIDCConfigFilename], &existingCfg); err != nil {
 		logger.Error(err, "failed to unmarshal existing config")
-	} else {
+	} else if existingCfg.IdentityProviders.OIDC != nil {
 		diff := cmp.Diff(*existingCfg.IdentityProviders.OIDC, oidcCfg, cmpopts.EquateEmpty())
 		if diff == "" {
 			return ctrl.Result{}, nil
