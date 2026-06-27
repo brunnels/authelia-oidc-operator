@@ -48,8 +48,8 @@ controllers:
     containers:
       kube-rbac-proxy:
         image:
-          repository: gcr.io/kubebuilder/kube-rbac-proxy
-          tag: v0.13.1
+          repository: ghcr.io/kube-rbac-proxy/kube-rbac-proxy
+          tag: v0.22.0
           pullPolicy: IfNotPresent
         args:
           - --secure-listen-address=0.0.0.0:8443
@@ -76,7 +76,7 @@ controllers:
       manager:
         image:
           repository: ghcr.io/milas/authelia-oidc-operator
-          tag: latest
+          tag: main
           pullPolicy: IfNotPresent
         args:
           - --health-probe-bind-address=:8081
