@@ -23,3 +23,7 @@ testbin/*
 *.swp
 *.swo
 *~
+/charts/authelia-oidc-operator/authelia-oidc-operator.yaml
+/charts/authelia-oidc-operator/Chart.lock
+/charts/authelia-oidc-operator/charts/
+/test-deployment.yaml

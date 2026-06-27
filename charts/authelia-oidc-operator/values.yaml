@@ -1,0 +1,258 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/common-5.0.1/charts/library/common/values.schema.json
+
+global:
+  fullnameOverride: authelia-oidc-operator
+  namespace: authelia-oidc-operator-system
+
+defaultPodOptions:
+  securityContext:
+    runAsNonRoot: true
+
+serviceAccount:
+  controller_manager:
+    forceRename: &controllerManager authelia-oidc-operator-controller-manager
+
+controllers:
+  controller_manager:
+    forceRename: *controllerManager
+    type: deployment
+    replicas: 1
+    strategy: RollingUpdate
+    serviceAccount:
+      identifier: controller_manager
+
+    pod:
+      labels:
+        control-plane: controller-manager
+      securityContext:
+        runAsNonRoot: true
+      # app-template v5 defaults this to false
+      automountServiceAccountToken: true
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+                      - ppc64le
+                      - s390x
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+
+    containers:
+      kube-rbac-proxy:
+        image:
+          repository: ghcr.io/kube-rbac-proxy/kube-rbac-proxy
+          tag: v0.22.0
+          pullPolicy: IfNotPresent
+        args:
+          - --secure-listen-address=0.0.0.0:8443
+          - --upstream=http://127.0.0.1:8080/
+          - --v=0
+        ports:
+          - name: https
+            containerPort: 8443
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+      manager:
+        image:
+          repository: ghcr.io/milas/authelia-oidc-operator
+          tag: main
+          pullPolicy: IfNotPresent
+        args:
+          - --health-probe-bind-address=:8081
+          - --metrics-bind-address=127.0.0.1:8080
+          - --leader-elect
+        command:
+          - /manager
+        ports:
+          - name: health
+            containerPort: 8081
+            protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  metrics:
+    controller: controller_manager
+    type: ClusterIP
+    ports:
+      https:
+        port: 8443
+        targetPort: 8443
+        protocol: TCP
+    labels:
+      control-plane: controller-manager
+
+persistence:
+  tls-cert:
+    type: secret
+    name: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-tls'
+    advancedMounts:
+      controller_manager:
+        manager:
+          - path: /tmp/k8s-webhook-server/serving-certs
+            readOnly: true
+
+rawResources:
+  # Create a selfsigned Issuer, in order to create a root CA certificate for signing certificates
+  self-signed-issuer:
+    manifest:
+      apiVersion: cert-manager.io/v1
+      kind: Issuer
+      spec:
+        selfSigned: {}
+  # Generate a CA Certificate used to sign certificates
+  ca-cert:
+    manifest:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      spec:
+        secretName: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-ca'
+        duration: 43800h # 5y
+        issuerRef:
+          name: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-self-signed-issuer'
+          kind: Issuer
+        commonName: 'ca.{{ include "bjw-s.common.lib.chart.names.fullname" $ }}.cert-manager'
+        isCA: true
+  # Create an Issuer that uses the above generated CA certificate to issue certs
+  ca-issuer:
+    manifest:
+      apiVersion: cert-manager.io/v1
+      kind: Issuer
+      spec:
+        ca:
+          secretName: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-ca'
+  # Finally, generate a serving certificate for the manager to use
+  cert:
+    manifest:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      spec:
+        secretName: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-tls'
+        duration: 8760h # 1y
+        issuerRef:
+          name: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-ca-issuer'
+          kind: Issuer
+        dnsNames:
+          - '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}'
+          - '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}.{{ .Release.Namespace }}'
+          - '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}.{{ .Release.Namespace }}.svc'
+
+rbac:
+  roles:
+    leader_election_role:
+      forceRename: authelia-oidc-operator-leader-election-role
+      type: Role
+      rules:
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+        - apiGroups: ["coordination.k8s.io"]
+          resources: ["leases"]
+          verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+        - apiGroups: [""]
+          resources: ["events"]
+          verbs: ["create", "patch"]
+    manager_role:
+      forceRename: authelia-oidc-operator-manager-role
+      type: ClusterRole
+      rules:
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+        - apiGroups: ["authelia.milas.dev"]
+          resources: ["oidcclients", "oidcproviders"]
+          verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+        - apiGroups: ["authelia.milas.dev"]
+          resources: ["oidcclients/finalizers", "oidcproviders/finalizers"]
+          verbs: ["update"]
+        - apiGroups: ["authelia.milas.dev"]
+          resources: ["oidcclients/status", "oidcproviders/status"]
+          verbs: ["get", "patch", "update"]
+    metrics_reader:
+      forceRename: authelia-oidc-operator-metrics-reader
+      type: ClusterRole
+      rules:
+        - nonResourceURLs: ["/metrics"]
+          verbs: ["get"]
+    proxy_role:
+      forceRename: authelia-oidc-operator-proxy-role
+      type: ClusterRole
+      rules:
+        - apiGroups: ["authentication.k8s.io"]
+          resources: ["tokenreviews"]
+          verbs: ["create"]
+        - apiGroups: ["authorization.k8s.io"]
+          resources: ["subjectaccessreviews"]
+          verbs: ["create"]
+  bindings:
+    leader_election_rolebinding:
+      forceRename: authelia-oidc-operator-leader-election-rolebinding
+      type: RoleBinding
+      roleRef:
+        kind: Role
+        identifier: leader_election_role
+      subjects:
+        - kind: ServiceAccount
+          identifier: controller_manager
+    manager_rolebinding:
+      forceRename: authelia-oidc-operator-manager-rolebinding
+      type: ClusterRoleBinding
+      roleRef:
+        kind: ClusterRole
+        identifier: manager_role
+      subjects:
+        - kind: ServiceAccount
+          identifier: controller_manager
+    proxy_rolebinding:
+      forceRename: authelia-oidc-operator-proxy-rolebinding
+      type: ClusterRoleBinding
+      roleRef:
+        kind: ClusterRole
+        identifier: proxy_role
+      subjects:
+        - kind: ServiceAccount
+          identifier: controller_manager

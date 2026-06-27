@@ -1,0 +1,22 @@
+---
+apiVersion: v2
+appVersion: 0.0.1
+description: Manage OIDC clients for Authelia SSO using Kubernetes CRDs
+name: authelia-oidc-operator
+version: 0.0.1
+kubeVersion: ">=1.28.0-0"
+keywords:
+  - authelia
+  - oidc
+  - operator
+home: https://github.com/milas/authelia-oidc-operator/charts/authelia-oidc-operator
+icon: https://images.opencollective.com/authelia-sponsors/d6205de/logo/128.png
+sources:
+  - https://github.com/milas/authelia-oidc-operator
+maintainers:
+  - name: brunnels
+    email: kraven@kraven.org
+dependencies:
+  - name: common
+    repository: https://bjw-s-labs.github.io/helm-charts
+    version: 5.0.1

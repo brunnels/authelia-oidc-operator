@@ -1,49 +1,172 @@
-name: CI
+name: Build and Push to OCI Registry
 
 on:
   push:
-    branches: ['main']
-    tags: ['v*']
+    branches: [main]
+  pull_request:
+  release:
+    types: [released]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+permissions:
+  packages: write
 
 jobs:
-  image:
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      packages: write
-
+  build_and_push_container_image:
+    runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3.6.0
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3.3.0
+        if: ${{ !github.event.pull_request.head.repo.fork }}
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
+      - name: Generate container image tags
+        id: metadata
+        uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
+          flavor: |
+            # Disable latest tag
+            latest=false
+          images: ghcr.io/${{ github.repository }}
 
-      - name: Build and push Docker image
+      - name: Build and push container image
+        id: build
         uses: docker/build-push-action@v3
         with:
-          push: true
-          pull: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          provenance: true
-          platforms: linux/arm64,linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          labels: ${{ steps.metadata.outputs.labels }}
+          platforms: linux/arm64,linux/amd64
+          push: ${{ !github.event.pull_request.head.repo.fork }}
+          tags: ${{ steps.metadata.outputs.tags }}
+
+      - name: Write container image digest file
+        if: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "${{ steps.build.outputs.digest }}" > "image-digest-operator.txt"
+
+      - name: Upload container image digest artifact
+        if: ${{ steps.build.outputs.digest }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest-operator
+          path: image-digest-operator.txt
+
+  build_and_push_chart:
+    runs-on: ubuntu-latest
+    needs: build_and_push_container_image
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.12.0'
+
+      - name: Get chart version
+        id: get_version
+        uses: mikefarah/yq@master
+        with:
+          cmd: |
+            set -euo pipefail
+            
+            REF="${{ github.ref }}"
+            CHART_PATH="charts/${{ github.event.repository.name }}"
+
+            if [[ "$REF" == refs/tags/* ]]; then
+              FULL_VERSION="${{ github.ref_name }}"
+            else
+              if [ ! -f "$CHART_PATH/Chart.yaml" ]; then
+                echo "Chart.yaml not found at $CHART_PATH" >&2
+                exit 1
+              fi
+            
+              BASE_VERSION="$(yq e '.version' "${CHART_PATH}/Chart.yaml")"
+              if [ -z "$BASE_VERSION" ]; then
+                echo "Could not determine chart version" >&2
+                exit 1
+              fi
+              RUN_ID="${{ github.run_id }}"
+              FULL_VERSION="${BASE_VERSION}-${RUN_ID}-SNAPSHOT"
+              #FULL_VERSION="${BASE_VERSION}-SNAPSHOT"
+            fi
+            
+            echo "Full Version: $FULL_VERSION"          
+            yq e -i ".version = \\"$FULL_VERSION\\"" "${CHART_PATH}/Chart.yaml"
+            echo "version=$FULL_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v3
+
+      - name: Generate CRDs into chart
+        run: |
+          # Ensure the chart CRDs directory exists and copy repository CRDs there. This makes them part of the packaged chart.
+          mkdir -p charts/${{ github.event.repository.name }}/crds
+          kustomize build config/crd -o charts/${{ github.event.repository.name }}/crds/crds.yaml
+
+      - name: Download image digest artifact (operator)
+        uses: actions/download-artifact@v4
+        with:
+          name: image-digest-operator
+          path: operator-artifact
+
+      - name: Update Helm chart container image tags
+        uses: mikefarah/yq@master
+        with:
+          cmd: |
+            VALUES_FILE=charts/${{ github.event.repository.name }}/values.yaml
+            
+            OP_DIGEST="$(cat operator-artifact/image-digest-operator.txt)"
+            yq e -i ".controllers.controller_manager.containers.manager.image.repository = \\"ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}\\"" "$VALUES_FILE"
+            yq e -i ".controllers.controller_manager.containers.manager.image.tag = \\"${{ github.ref_name }}@${OP_DIGEST}\\"" "$VALUES_FILE"
+            
+            echo "Updated $VALUES_FILE"
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p packaged
+          helm dependency update charts/${{ github.event.repository.name }}
+          helm package charts/${{ github.event.repository.name }} -d packaged
+          ls -lah packaged
+
+      - name: Login to GHCR for Helm OCI
+        if: ${{ !github.event.pull_request.head.repo.fork }}
+        run: |
+          set -euo pipefail
+          echo "Logging in to ghcr.io with helm registry login"
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+
+      - name: Push packaged chart with Helm (OCI)
+        env:
+          CHART_VERSION: ${{ steps.get_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          chart_file=$(ls packaged/*.tgz | head -n1)
+          if [ -z "$chart_file" ]; then
+            echo "No packaged chart found" >&2
+            exit 1
+          fi
+          chart_ref="oci://ghcr.io/${{ github.repository_owner }}/charts"
+          echo "Pushing $chart_file to $chart_ref"
+          helm push "$chart_file" "$chart_ref"
+
+      - name: Verify pushed artifact
+        run: |
+          chart_ref="oci://ghcr.io/${{ github.repository_owner }}/charts:${{ steps.get_version.outputs.version }}"
+          echo "Pushed chart $chart_ref"
