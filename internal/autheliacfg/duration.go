@@ -1,7 +1,7 @@
 package autheliacfg
 
 import (
-	"github.com/milas/authelia-oidc-operator/pkg/duration"
+	"github.com/brunnels/authelia-oidc-operator/pkg/duration"
 )
 
 // Duration is an alias for pkg/duration.Duration for backwards compatibility.

@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/milas/authelia-oidc-operator/pkg/duration"
+	"github.com/brunnels/authelia-oidc-operator/pkg/duration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

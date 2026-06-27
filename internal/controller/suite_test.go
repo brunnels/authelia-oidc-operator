@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	// +kubebuilder:scaffold:imports
-	autheliav1alpha1 "github.com/milas/authelia-oidc-operator/api/v1alpha1"
-	autheliav1alpha2 "github.com/milas/authelia-oidc-operator/api/v1alpha2"
+	autheliav1alpha1 "github.com/brunnels/authelia-oidc-operator/api/v1alpha1"
+	autheliav1alpha2 "github.com/brunnels/authelia-oidc-operator/api/v1alpha2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-crypt/crypt/algorithm/pbkdf2"
-	apiv1alpha1 "github.com/milas/authelia-oidc-operator/api/v1alpha1"
-	api "github.com/milas/authelia-oidc-operator/api/v1alpha2"
+	apiv1alpha1 "github.com/brunnels/authelia-oidc-operator/api/v1alpha1"
+	api "github.com/brunnels/authelia-oidc-operator/api/v1alpha2"
 	k8score "k8s.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 )

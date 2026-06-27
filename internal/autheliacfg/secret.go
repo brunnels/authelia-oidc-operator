@@ -3,7 +3,7 @@ package autheliacfg
 import (
 	"fmt"
 
-	api "github.com/milas/authelia-oidc-operator/api/v1alpha2"
+	api "github.com/brunnels/authelia-oidc-operator/api/v1alpha2"
 	k8score "k8s.io/api/core/v1"
 )
 

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/go-crypt/crypt/algorithm"
-	autheliav1alpha1 "github.com/milas/authelia-oidc-operator/api/v1alpha1"
-	autheliav1alpha2 "github.com/milas/authelia-oidc-operator/api/v1alpha2"
-	durationpkg "github.com/milas/authelia-oidc-operator/pkg/duration"
+	autheliav1alpha1 "github.com/brunnels/authelia-oidc-operator/api/v1alpha1"
+	autheliav1alpha2 "github.com/brunnels/authelia-oidc-operator/api/v1alpha2"
+	durationpkg "github.com/brunnels/authelia-oidc-operator/pkg/duration"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
