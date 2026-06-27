@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/milas/authelia-oidc-operator/pkg/duration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,7 +55,7 @@ type OIDCClientSpec struct {
 	// +optional
 	AuthorizationPolicy AuthorizationPolicy `json:"authorization_policy,omitempty"`
 
-	PreconfiguredConsentDuration metav1.Duration `json:"preconfigured_consent_duration,omitempty"`
+	PreconfiguredConsentDuration duration.Duration `json:"preconfigured_consent_duration,omitempty"`
 
 	Audience []string `json:"audience,omitempty"`
 

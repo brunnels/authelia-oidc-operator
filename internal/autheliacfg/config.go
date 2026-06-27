@@ -133,10 +133,10 @@ func NewOIDC(
 	})
 
 	cfgProvider := OIDC{
-		AccessTokenLifespan:       Duration(provider.Spec.AccessTokenLifespan.Duration),
-		AuthorizeCodeLifespan:     Duration(provider.Spec.AuthorizeCodeLifespan.Duration),
-		IDTokenLifespan:           Duration(provider.Spec.IDTokenLifespan.Duration),
-		RefreshTokenLifespan:      Duration(provider.Spec.RefreshTokenLifespan.Duration),
+		AccessTokenLifespan:       Duration(provider.Spec.AccessTokenLifespan),
+		AuthorizeCodeLifespan:     Duration(provider.Spec.AuthorizeCodeLifespan),
+		IDTokenLifespan:           Duration(provider.Spec.IDTokenLifespan),
+		RefreshTokenLifespan:      Duration(provider.Spec.RefreshTokenLifespan),
 		EnableClientDebugMessages: provider.Spec.EnableClientDebugMessages,
 		EnforcePKCE:               provider.Spec.EnforcePKCE,
 		CORS:                      NewCORS(provider.Spec.CORS),
@@ -195,7 +195,7 @@ func NewOIDCClient(in *api.OIDCClient, secrets []k8score.Secret) (OIDCClient, *O
 		SectorIdentifier:             in.Spec.SectorIdentifier,
 		Public:                       in.Spec.Public,
 		AuthorizationPolicy:          string(in.Spec.AuthorizationPolicy),
-		PreconfiguredConsentDuration: Duration(in.Spec.PreconfiguredConsentDuration.Duration),
+		PreconfiguredConsentDuration: Duration(in.Spec.PreconfiguredConsentDuration),
 		Audience:                     in.Spec.Audience,
 		RedirectURIs:                 in.Spec.RedirectURIs,
 		UserinfoSigningAlgorithm:     in.Spec.UserinfoSigningAlgorithm,
