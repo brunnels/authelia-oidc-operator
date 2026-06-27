@@ -3,9 +3,10 @@ name: Build and Push to OCI Registry
 on:
   push:
     branches: [main]
+    tags: [v*]
   pull_request:
-  release:
-    types: [released]
+    branches:
+      - main
 
 permissions:
   packages: write
@@ -34,8 +35,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate container image tags
-        id: metadata
-        uses: docker/metadata-action@v5
+        id: meta
+        uses: docker/metadata-action@v6
         with:
           flavor: |
             # Disable latest tag
@@ -44,14 +45,14 @@ jobs:
 
       - name: Build and push container image
         id: build
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v7
         with:
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          labels: ${{ steps.metadata.outputs.labels }}
+          labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/arm64,linux/amd64
           push: ${{ !github.event.pull_request.head.repo.fork }}
-          tags: ${{ steps.metadata.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
 
       - name: Write container image digest file
         if: ${{ steps.build.outputs.digest }}
@@ -67,6 +68,7 @@ jobs:
 
   build_and_push_chart:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request }}
     needs: build_and_push_container_image
     steps:
       - name: Checkout
