@@ -56,7 +56,6 @@ controllers:
         args:
           - --secure-listen-address=0.0.0.0:8443
           - --upstream=http://127.0.0.1:8080/
-          - --logtostderr=true
           - --v=0
         ports:
           - name: https
@@ -126,6 +125,62 @@ service:
         protocol: TCP
     labels:
       control-plane: controller-manager
+
+persistence:
+  tls-cert:
+    type: secret
+    name: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-tls'
+    defaultMode: 0400
+    advancedMounts:
+      controller_manager:
+        manager:
+          - path: /tmp/k8s-webhook-server/serving-certs
+            readOnly: true
+
+rawResources:
+  # Create a selfsigned Issuer, in order to create a root CA certificate for signing certificates
+  self-signed-issuer:
+    apiVersion: cert-manager.io/v1
+    kind: Issuer
+    spec:
+      spec:
+        selfSigned: {}
+  # Generate a CA Certificate used to sign certificates
+  ca-cert:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    spec:
+      spec:
+        secretName: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-ca'
+        duration: 43800h # 5y
+        issuerRef:
+          name: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-self-signed-issuer'
+          kind: Issuer
+        commonName: 'ca.{{ include "bjw-s.common.lib.chart.names.fullname" $ }}.cert-manager'
+        isCA: true
+  # Create an Issuer that uses the above generated CA certificate to issue certs
+  ca-issuer:
+    apiVersion: cert-manager.io/v1
+    kind: Issuer
+    spec:
+      spec:
+        ca:
+          secretName: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-ca'
+  # Finally, generate a serving certificate for the manager to use
+  cert:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    spec:
+      spec:
+        secretName: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-tls'
+        duration: 8760h # 1y
+        issuerRef:
+          name: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}-ca-issuer'
+          kind: Issuer
+        dnsNames:
+          - '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}'
+          - '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}.{{ .Release.Namespace }}'
+          - '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}.{{ .Release.Namespace }}.svc'
 
 rbac:
   roles:
