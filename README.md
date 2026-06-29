@@ -46,12 +46,11 @@ using CRDs, which can live in the app namespace.
     kind: OIDCProvider
     metadata:
       name: default
-      namespace: authelia
+      namespace: security
     spec:
-      refresh_token_lifespan: '30d'
+      refresh_token_lifespan: 30d
       cors:
-        allowed_origins:
-          - 'https://example.com'
+        allowed_origins_from_client_redirect_uris: true
     ```
     ```sh
     kubectl apply -f ./oidc_provider.yaml
@@ -63,27 +62,42 @@ using CRDs, which can live in the app namespace.
     apiVersion: authelia.milas.dev/v1alpha2
     kind: OIDCClient
     metadata:
-      name: my-client
-      namespace: my-app
       annotations:
-        authelia.milas.dev/oidc-provider: authelia/default
+        authelia.milas.dev/oidc-provider: security/default
+      name: my-client
+      namespace: storage
     spec:
-      description: My Application
-      secret_ref:
-        name: 'my-app'
-        fields:
-          client_id: 'OIDC_CLIENT_ID'
-          client_secret: 'OIDC_CLIENT_SECRET'
-      public: false
       authorization_policy: two_factor
-      consent_mode: implicit
-      token_endpoint:
-        auth_method: client_secret_post
-      redirect_uris:
-        - 'https://example.com:8080/oauth2/callback'
       claims:
+        name: my-client
         policy:
-          id_token: ['preferred_username']
+          id_token:
+          - groups
+          - email
+          - email_verified
+          - alt_emails
+          - preferred_username
+          - name
+      description: My Application
+      grant_types:
+      - authorization_code
+      - refresh_token
+      preconfigured_consent_duration: 30m
+      public: false
+      redirect_uris:
+      - https://my-app.cluster.domain/oauth2/callback
+      response_types:
+      - code
+      scopes:
+      - openid
+      - offline_access
+      secret_ref:
+        fields:
+          client_id: OIDC_CLIENT_ID
+          client_secret: OIDC_CLIENT_SECRET
+        name: my-client-secret
+      token_endpoint:
+        auth_method: client_secret_basic
     ```
     ```sh
     kubectl apply -f ./oidc_client.yaml
