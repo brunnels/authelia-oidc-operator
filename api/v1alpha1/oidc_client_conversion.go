@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
-	"github.com/milas/authelia-oidc-operator/api/v1alpha2"
+	"github.com/brunnels/authelia-oidc-operator/api/v1alpha2"
 )
 
 var _ conversion.Convertible = &OIDCClient{}

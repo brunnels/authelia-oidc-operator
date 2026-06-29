@@ -56,13 +56,14 @@ spec:
                       Endpoints to configure with cross-origin resource sharing headers.
 
                       It is recommended that the userinfo option is at least in this list.
-                    enum:
-                    - authorization
-                    - token
-                    - revocation
-                    - introspection
-                    - userinfo
                     items:
+                      enum:
+                        - authorization
+                        - introspection
+                        - pushed-authorization-request
+                        - revocation
+                        - token
+                        - userinfo
                       type: string
                     type: array
                 type: object
